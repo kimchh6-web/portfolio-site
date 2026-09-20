@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 관리자 ----------
+model AdminUser {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  totpSecret   String?
+  failedCount  Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  at        DateTime @default(now())
+  ip        String
+  success   Boolean
+  note      String?
+}
+
+// ---------- 콘텐츠 (프로젝트·논문·수상·경력·교육·기술·CV 항목 공용) ----------
+// kind: project | paper | award | talk | work | education | training | skill
+//       | interest | intl_workshop | under_review | preprint | domestic_conf
+model Entry {
+  id         Int       @id @default(autoincrement())
+  kind       String
+  slug       String?   @unique
+  order      Int       @default(0)
+  isPublic   Boolean   @default(true)
+  inCv       Boolean   @default(false)
+  featured   Boolean   @default(false)
+  dateStart  DateTime?
+  dateEnd    DateTime?
+  isCurrent  Boolean   @default(false)
+  link       String?
+  extra      String    @default("{}") // JSON: tech[], links[], authors, coverImage, category, doi …
+  sourceLang String    @default("ko")
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  texts      EntryText[]
+}
+
+// 언어별 텍스트. fields = JSON { title, summary, body, org, location, venue, degree, role … }
+model EntryText {
+  id        Int      @id @default(autoincrement())
+  entryId   Int
+  lang      String   // ko | en | ja | zh-CN | zh-TW
+  fields    String   @default("{}")
+  origin    String   @default("user") // user | machine | user-edited
+  updatedAt DateTime @updatedAt
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, lang])
+}
+
+// 고유명사 사전
+model Glossary {
+  id     Int    @id @default(autoincrement())
+  kind   String // person | org | degree | product
+  ko     String
+  en     String?
+  ja     String?
+  zhCN   String?
+  zhTW   String?
+}
+
+// ---------- 문서 보관함 ----------
+model Document {
+  id        Int            @id @default(autoincrement())
+  title     String
+  kind      String         @default("other") // resume | cover_letter | certificate | other
+  tags      String         @default("")
+  isPublic  Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  deletedAt DateTime?
+  files     DocumentFile[]
+}
+
+model DocumentFile {
+  id          Int      @id @default(autoincrement())
+  documentId  Int
+  version     Int      @default(1)
+  filename    String
+  mime        String
+  size        Int
+  storagePath String
+  uploadedAt  DateTime @default(now())
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+// ---------- 사이트·CV 프로필 설정 (key-value, 값은 JSON 문자열) ----------
+model Setting {
+  key   String @id
+  value String
+}
