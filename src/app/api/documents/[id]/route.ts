@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { getFile } from "@/lib/storage";
 import { prisma } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { verifyDownload } from "@/lib/sign";
@@ -20,8 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const sig = req.nextUrl.searchParams.get("sig") || "";
     if (!file.document.isPublic || !verifyDownload(fileId, exp, sig)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
-  const dir = path.resolve(process.env.STORAGE_DIR || "./storage");
-  const buf = await fs.readFile(path.join(dir, file.storagePath));
+  const buf = await getFile(file.storagePath);
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": file.mime,

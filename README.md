@@ -5,13 +5,27 @@
 
 ## 처음 한 번
 
+DB는 PostgreSQL(Supabase 무료)을 쓴다. 로컬에서도 같은 DB에 붙는다.
+
 ```bash
 npm install
-cp .env.example .env          # SESSION_SECRET 을 32자 이상 임의 문자열로 바꾸기
-npm run db:push               # SQLite DB 생성 (prisma/dev.db)
+cp .env.example .env          # DATABASE_URL, DIRECT_URL, SESSION_SECRET 채우기
+npm run db:push               # 테이블 생성
 npm run admin -- <아이디> <비밀번호10자이상>   # 관리자 계정
 npm run seed                  # 초기 데이터 (선택)
 ```
+
+## 배포 (Vercel + Supabase)
+
+1. Supabase 프로젝트 → Connect 에서 pooler 연결 문자열 2개(6543 Transaction, 5432 Session) 복사.
+   Project Settings → API 에서 URL과 service_role 키 복사.
+2. Vercel → Add New Project → GitHub `kimchh6-web/portfolio-site` 선택.
+   Environment Variables 에 `.env.example` 의 항목을 입력: `DATABASE_URL`(끝에 `?pgbouncer=true`), `DIRECT_URL`,
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `SITE_URL`(배포 주소). `BROWSER_PATH`/`STORAGE_DIR`는 불필요.
+3. 로컬 `.env` 에 같은 값을 넣고 `npm run db:push` 로 테이블을 만든 뒤,
+   `npx tsx scripts/import-json.ts` 로 기존 SQLite 데이터(prisma/export.json)를 옮긴다. 없으면 `npm run admin`, `npm run seed`.
+4. Vercel 이 빌드하면 `https://<프로젝트>.vercel.app` 으로 접속. 관리자는 `/admin`.
+5. PDF 는 서버리스 Chromium(@sparticuz/chromium)으로 렌더되며 첫 호출은 10초 정도 걸릴 수 있다.
 
 ## 실행
 

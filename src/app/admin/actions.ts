@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { authenticator } from "otplib";
-import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { deleteFile, putFile } from "@/lib/storage";
 import { prisma } from "@/lib/db";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { LANGS, isLang, type Lang } from "@/lib/i18n";
@@ -259,10 +259,8 @@ export async function uploadDocument(fd: FormData) {
   const okExt = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg", ".txt", ".zip", ".hwp", ".hwpx", ".md"].includes(ext);
   if (!okExt || (file.type && !ALLOWED.has(file.type))) redirect("/admin/documents?e=" + encodeURIComponent("허용되지 않는 파일 형식"));
 
-  const dir = path.resolve(process.env.STORAGE_DIR || "./storage");
-  await fs.mkdir(dir, { recursive: true });
   const stored = `${Date.now()}_${crypto.randomBytes(8).toString("hex")}${ext}`;
-  await fs.writeFile(path.join(dir, stored), Buffer.from(await file.arrayBuffer()));
+  await putFile(stored, Buffer.from(await file.arrayBuffer()), file.type || "application/octet-stream");
 
   let doc = docId ? await prisma.document.findUnique({ where: { id: docId }, include: { files: true } }) : null;
   if (!doc) {
@@ -287,8 +285,7 @@ export async function deleteDocument(fd: FormData) {
   const id = Number(fd.get("id"));
   const doc = await prisma.document.findUnique({ where: { id }, include: { files: true } });
   if (doc) {
-    const dir = path.resolve(process.env.STORAGE_DIR || "./storage");
-    for (const f of doc.files) await fs.rm(path.join(dir, f.storagePath), { force: true });
+    for (const f of doc.files) await deleteFile(f.storagePath);
     await prisma.document.delete({ where: { id } });
   }
   redirect("/admin/documents");
